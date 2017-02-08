@@ -1,15 +1,21 @@
 import time
-import tsl2561
+import tsl2561 # Library for light sensor
 import network
-import si7021   # need to get library from here https://gist.github.com/minyk/7c3070bc1c2766633b8ff1d4d51089cf
-
-
+#import si7021   # need to get library from here https://gist.github.com/minyk/7c3070bc1c2766633b8ff1d4d51089cf
 from machine import I2C, Pin
 from umqtt.simple import MQTTClient
 
 machine_name = machine.unique_id() 
 base_topic = "/esys/FPJA/"
 request_topic = base_topic + "/request/"
+
+#SI7021 tm=emmperature sensor Address and commands
+
+SI7021_I2C_DEFULT_ADDR = 0x44
+
+CMD_MEASURE_RELAVTIVE_HUMIDITY = 0xF5
+CMD_MEASURE_TEMPERATURE = 0xF3
+
 
 def publish(topic, data_json):
     client = MQTTClient(machine_name,"192.168.0.10")
@@ -33,9 +39,9 @@ def ReadHumidity(humid) # Reading from Temperature library
 #--------------------------------------------------------------------------------------------------------
     
 def ServoMove():# Opens servo motor 
-    servo.duty(115)
+    servo.duty(130)
     time.sleep(0.5)
-    servo.duty(44)
+    servo.duty(30)
     
 def networkConnection():
     ap_if = network.WLAN(network.AP_IF)
@@ -49,5 +55,7 @@ if __name__ == '__main__':
     L_sensor = tsl2561.TSL2561(i2c) # Setup the light sesnor
     temp_sensor = si7021.Si7021() # Setupthe temperature and humidity Sensor 
     servo = machine.PWM(machine.PIN(12), freq = 50) # Setup for servo motor
+    
+    servo.duty(30) #Setting the inital posistion of the servo motor
     
     print(sensor.read())
