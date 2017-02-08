@@ -86,6 +86,9 @@ def ServoMove():# Opens servo motor
 class device_status(object):
     
     def __init__(self):
+        self.average_every = 4       
+        self.average_count = 0       
+ 
 	self.water_level = 0
 	self.water_avg = 0
 	self.water_min = 0
@@ -101,6 +104,7 @@ class device_status(object):
 
     def sample():
 	
+	esp.sleep_type(SLEEP_NONE)
 ############  PATRICK  ####################
 #Update all of this and water if necessary
 	self.index = 0
@@ -124,6 +128,12 @@ class device_status(object):
 ############  END PATRICK  ####################
 
 	last_sensed = time.localtime(time.time())
+	report_basic()
+
+	self.average_count += 1
+	if self.average_count == self.average_every:
+		report_full()
+	esp.sleep_type(SLEEP_LIGHT)
 
     def report_basic():
 	publish_full_data(self.last_sensed, self.index, self.water_level) 
@@ -139,27 +149,37 @@ class device_status(object):
 
 if __name__ == '__main__':
     
-    # configure RTC.ALARM0 to be able to wake the device
-    rtc = machine.RTC()
-    rtc.irq(trigger=rtc.ALARM0, wake=machine.DEEPSLEEP)
-    
-    # check if the device woke from a deep sleep
-    if machine.reset_cause() == machine.DEEPSLEEP_RESET:
-        print('woke from a deep sleep')
-    
-    # set RTC.ALARM0 to fire after 10 seconds (waking the device)
-    rtc.alarm(rtc.ALARM0, 10000)
-    
-    # put the device to sleep
-    machine.deepsleep()
- 
     i2c = I2C(Pin(5), Pin(4)) # Setup the i2c channel
     L_sensor = tsl2561.TSL2561(i2c) # Setup the light sesnor
     temp_sensor = si7021.Si7021() # Setupthe temperature and humidity Sensor 
     servo = machine.PWM(machine.PIN(12), freq = 50) # Setup for servo motor
     
     servo.duty(30) #Setting the inital posistion of the servo motor
+
+    mike = device_status()
+    
+    sense_time_sec = 2 
+    sense_time =  sense_time_sec*1000
+
+    tim = machine.Timer(-1)
+    tim.init(period=5000, mode=Timer.PERIODIC, callback=mike.sense())	
     
     print(sensor.read())
+
+    #TODO: Implement deepsleep
+#    # configure RTC.ALARM0 to be able to wake the device
+#    rtc = machine.RTC()
+#    rtc.irq(trigger=rtc.ALARM0, wake=machine.DEEPSLEEP)
+#    
+#    # check if the device woke from a deep sleep
+#    if machine.reset_cause() == machine.DEEPSLEEP_RESET:
+#        print('woke from a deep sleep')
+#    
+#    # set RTC.ALARM0 to fire after 10 seconds (waking the device)
+#    rtc.alarm(rtc.ALARM0, 10000)
+#    
+#    # put the device to sleep
+#    machine.deepsleep()
+ 
 
 
