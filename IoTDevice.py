@@ -127,6 +127,7 @@ class device_status(object):
      self.water = 0
  
 	self.water_level = 10 # Full water level will be 10, needs changing at zero
+    self.need_water = False # Flag for when the water needs to be topped up
 	self.water_avg = 0
 	self.water_min = 0
 	self.water_max = 0
@@ -157,9 +158,13 @@ class device_status(object):
             return old_min
             
     def watering(self):
-        ServoMove()
-        self.water_level -= 1
-        last_waterd = time.time()
+        if self.water_level == 0:# Check if the water needs to be toppped up
+            self.need_water = True
+        else:
+            self.need_water = False
+            ServoMove()
+            self.water_level -= 1
+            last_watered = time.time()
 
     def sample(self):
     
