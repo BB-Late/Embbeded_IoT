@@ -109,14 +109,8 @@ def ReadHumidity(humid): # Reading from Temperature library
     
 #--------------------------------------------------------------------------------------------------------
 
-def collectData(light, temp, water, data_time):#Data collection all at once 
-    light = append(L_sensor.read())
-    temp = append(temp_sensor.readTemp())
-    water = append(temp_sensor.readRH())
-    data_time = append(time.time())# records time of readings
     
-    
-def ServoMove(water_level):# Opens servo motor 
+def ServoMove():# Opens servo motor 
     servo.duty(130)
     time.sleep(0.5)
     servo.duty(30)
@@ -126,55 +120,92 @@ class device_status(object):
     
     def __init__(self):
         self.average_every = 4       
-        self.average_count = 0       
- 
-	self.water_level = 0
-	self.water_avg = 0
-	self.water_min = 0
-	self.water_max = 0
-	
-	self.temp_avg = 0
-	self.temp_min = 0
-	self.temp_max = 0
-	
-	self.light_avg = 0
-	self.light_min = 0
-	self.light_max = 0
+        self.average_count = 0    
+           
+        self.start_time = time.time() # The starting time of data collection
+        self.previous_time = 0; # the ti0me before the last sample
+        
+        self.light = 0
+        self.temp = 0
+        self.water = 0
 
-    def sample():
-	
-	esp.sleep_type(SLEEP_NONE)
-############  PATRICK  ####################
-#Update all of this and water if necessary
-    def sample():
-	
-	self.index = 0
+        self.water_level = 10 # Full water level will be 10, needs changing at zero
+        self.need_water = False # Flag for when the water needs to be topped up
+        self.water_avg = 0
+        self.water_min = 0
+        self.water_max = 0
+        
+        self.temp_avg = 0
+        self.temp_min = 0
+        self.temp_max = 0
+        
+        self.light_avg = 0
+        self.light_min = 0
+        self.light_max = 0
+    
+    def collectData(self):#Data collection all at once 
+        self.light = L_sensor.read()
+        self.temp = temp_sensor.readTemp()
+        self.water = temp_sensor.readRH()
+        
+    def MaxValue(self, old_max, new_value):
+        if new_value > old_max:
+            return new_value
+        else:
+            return old_max
+    
+    def MinValue(self, old_min, new_value):
+        if new_value < old_min:
+            return new_value
+        else:
+            return old_min
+            
+    def watering(self):
+        if self.water_level == 0:# Check if the water needs to be toppped up
+            self.need_water = True
+        else:
+            self.need_water = False
+            ServoMove()
+            self.water_level -= 1
+            last_watered = time.time()
 
-	last_waterd = 0
+    def sample(self):
+    
+        esp.sleep_type(SLEEP_NONE)
 
-	self.water_level = 0
+        self.last_sensed = time.time()
+        self.averaging_time = self.last_sensed - self.previous_time
+        self.total_time = self.last_sensed - self.start_time
+        self.previous_time = self.last_sensed
+        report_basic()
+        
+        self.index = 0
 
-	self.water_avg = 0 #
-	self.water_min = 0
-	self.water_max = 0
-	
-	self.temp_avg = sum(temp)/float(len(temp)) # finds the mean of the temperature
-	self.temp_min = min(temp)
-	self.temp_max = max(temp)
-	
-	self.light_avg = sum(light)/float(len(light)) # finds the mean of the light readings 
-	self.light_min = min(light)
-	self.light_max = max(light)
+        #last_watered = 0
 
-############  END PATRICK  ####################
+        #self.water_level = 0
+        
+        self.collectData()
+        
+        #Change to rolling average
 
-	last_sensed = time.localtime(time.time())
-	report_basic()
+        self.water_avg = self.water_avg + self.water*(self.averaging_time/self.total_time)
+        self.water_min = MinValue(self.water_min, self.water)
+        self.water_max = MaxValue(self.water_max, self.water)
+        
+        self.temp_avg = self.temp_avg + self.temp*(self.averaging_time/self.total_time)
+        self.temp_min = MinValue(self.temp_min, self.temp)
+        self.temp_max = MaxValue(self.temp_max, self.temp)
+        
+        self.light_avg = self.light_avg + self.light*(self.averaging_time/self.total_time)
+        self.light_min = MinValue(self.light_min, self.light)
+        self.light_max = MaxValue(self.light_max, self.light)
 
-	self.average_count += 1
-	if self.average_count == self.average_every:
-		report_full()
-	esp.sleep_type(SLEEP_LIGHT)
+
+        self.average_count += 1
+        if self.average_count == self.average_every:
+        	report_full()
+        esp.sleep_type(SLEEP_LIGHT)
 
     def report_basic():
 	publish_full_data(self.last_sensed, self.index, self.water_level) 
