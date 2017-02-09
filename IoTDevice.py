@@ -57,32 +57,68 @@ def publish_full_data(timestamp,
                     }
     publish(server_topic, json_payload)
  
-#SI7021 tm=emmperature sensor Address and commands
+#SI7021 temperature sensor Address and commands
 
 SI7021_I2C_DEFULT_ADDR = 0x44
 
 CMD_MEASURE_RELAVTIVE_HUMIDITY = 0xF5
 CMD_MEASURE_TEMPERATURE = 0xF3
 
+class Si7021(object):# Code copied from Si7021 library, may need to be changed
+    def __init__(self, i2c_addr = SI7021_I2C_DEFAULT_ADDR):
+        self.addr = i2c_addr
+        self.cbuffer = bytearray(2)
+        self.cbuffer[1] = 0x00
+        self.i2c = I2C(scl=Pin(5), sda=Pin(4), freq=100000)
+
+    def write_command(self, command_byte):
+        self.cbuffer[0] = command_byte
+        self.i2c.writeto(self.addr, self.cbuffer)
+
+    def readTemp(self):
+        self.write_command(CMD_MEASURE_TEMPERATURE)
+        sleep_ms(25)
+        temp = self.i2c.readfrom(self.addr,3)
+        temp2 = temp[0] << 8
+        temp2 = temp2 | temp[1]
+        return (175.72 * temp2 / 65536) - 46.85
+
+    def readRH(self):
+        self.write_command(CMD_MEASURE_RELATIVE_HUMIDITY)
+        sleep_ms(25)
+        rh = self.i2c.readfrom(self.addr, 3)
+        rh2 = rh[0] << 8
+        rh2 = rh2 | rh[1]
+        return (125 * rh2 / 65536) - 6
+    
+
  #----------------------------------------------------------------------------------------------------------
     
 # Not sure we need theses functions, they only contain one command from the revelant library.
 
 def ReadLight(light): # Reading from light sensor
-    light = L_sensor.read()
+    light = append(L_sensor.read())
     
 def ReadTemp(temp): # Reading from Temperature library
-    temp = temp_sesnor.readTemp()
+    temp = append(temp_sensor.readTemp())
     
 def ReadHumidity(humid): # Reading from Temperature library
-    humid = temp_sensor.readRH()
+    humid = append(temp_sensor.readRH())
     
 #--------------------------------------------------------------------------------------------------------
+
+def collectData(light, temp, water, data_time):#Data collection all at once 
+    light = append(L_sensor.read())
+    temp = append(temp_sensor.readTemp())
+    water = append(temp_sensor.readRH())
+    data_time = append(time.time())# records time of readings
     
-def ServoMove():# Opens servo motor 
+    
+def ServoMove(water_level):# Opens servo motor 
     servo.duty(130)
     time.sleep(0.5)
     servo.duty(30)
+    
 
 class device_status(object):
     
@@ -103,28 +139,31 @@ class device_status(object):
 	self.light_min = 0
 	self.light_max = 0
 
+=======
     def sample():
 	
 	esp.sleep_type(SLEEP_NONE)
 ############  PATRICK  ####################
 #Update all of this and water if necessary
+    def sample():
+	
 	self.index = 0
 
 	last_waterd = 0
 
 	self.water_level = 0
 
-	self.water_avg = 0
+	self.water_avg = 0 #
 	self.water_min = 0
 	self.water_max = 0
 	
-	self.temp_avg = 0
-	self.temp_min = 0
-	self.temp_max = 0
+	self.temp_avg = sum(temp)/float(len(temp)) # finds the mean of the temperature
+	self.temp_min = min(temp)
+	self.temp_max = max(temp)
 	
-	self.light_avg = 0
-	self.light_min = 0
-	self.light_max = 0
+	self.light_avg = sum(light)/float(len(light)) # finds the mean of the light readings 
+	self.light_min = min(light)
+	self.light_max = max(light)
 
 ############  END PATRICK  ####################
 
@@ -165,7 +204,6 @@ def run():
     tim = machine.Timer(-1)
     tim.init(period=5000, mode=Timer.PERIODIC, callback=mike.sense())	
     
-    print(sensor.read())
 
     #TODO: Implement deepsleep
 #    # configure RTC.ALARM0 to be able to wake the device
