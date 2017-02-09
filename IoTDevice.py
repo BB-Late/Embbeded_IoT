@@ -221,20 +221,20 @@ class device_status(object):
 
 #if __name__ == '__main__':
 def run():   
-    i2c = I2C(Pin(5), Pin(4)) # Setup the i2c channel
+    i2c = I2C(-1, Pin(5), Pin(4)) # Setup the i2c channel
     L_sensor = tsl2561.TSL2561(i2c) # Setup the light sesnor
-    temp_sensor = si7021.Si7021() # Setupthe temperature and humidity Sensor 
-    servo = machine.PWM(machine.PIN(12), freq = 50) # Setup for servo motor
+    temp_sensor = Si7021() # Setupthe temperature and humidity Sensor 
+    servo = machine.PWM(machine.Pin(12), freq = 50) # Setup for servo motor
     
     servo.duty(30) #Setting the inital posistion of the servo motor
 
-    mike = device_status()
-    
-    sense_time_sec = 2 
-    sense_time =  sense_time_sec*1000
-
-    tim = machine.Timer(-1)
-    tim.init(period=5000, mode=Timer.PERIODIC, callback=mike.sense())	
+#    mike = device_status()
+#    
+#    sense_time_sec = 2 
+#    sense_time =  sense_time_sec*1000
+#
+#    tim = machine.Timer(-1)
+#    tim.init(period=5000, mode=Timer.PERIODIC, callback=mike.sense())	
     
 
     #TODO: Implement deepsleep
