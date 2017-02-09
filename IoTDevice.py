@@ -3,6 +3,7 @@ import tsl2561 # Library for light sensor
 import network
 #import si7021   # need to get library from here https://gist.github.com/minyk/7c3070bc1c2766633b8ff1d4d51089cf
 from machine import I2C, Pin
+import machine 
 from umqtt.simple import MQTTClient
 
 machine_name = machine.unique_id() 
@@ -147,8 +148,8 @@ class device_status(object):
 	
 
 
-if __name__ == '__main__':
-    
+#if __name__ == '__main__':
+def run():   
     i2c = I2C(Pin(5), Pin(4)) # Setup the i2c channel
     L_sensor = tsl2561.TSL2561(i2c) # Setup the light sesnor
     temp_sensor = si7021.Si7021() # Setupthe temperature and humidity Sensor 
