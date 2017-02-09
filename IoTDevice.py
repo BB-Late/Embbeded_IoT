@@ -1,5 +1,6 @@
 import utime as time
 import tsl2561 # Library for light sensor
+import ujson 
 import network
 #import si7021   # need to get library from here https://gist.github.com/minyk/7c3070bc1c2766633b8ff1d4d51089cf
 from machine import I2C, Pin
@@ -10,18 +11,19 @@ machine_name = machine.unique_id()
 
 
 
-base_topic = "/esys/FPJA/"
-server_topic = base_topic + "/server/"
+base_topic = "esys/FPJA/"
+server_topic = base_topic + "server/"
 def publish(topic, data_json):
     client = MQTTClient(machine_name,"192.168.0.10")
     client.connect()
     #client.publish(topic,bytes(data,'utf-8'))
-    client.publish(topic, json.dumps(data_json))
+    client.publish(topic, ujson.dumps(data_json))
     
     
 def networkConnection():
     ap_if = network.WLAN(network.AP_IF)
     ap_if.active(False)
+    sta_if = network.WLAN(network.STA_IF)
     sta_if.active(True)
     sta_if.connect('EEERover','exhibition')
 
@@ -59,7 +61,7 @@ def publish_full_data(timestamp,
  
 #SI7021 temperature sensor Address and commands
 
-SI7021_I2C_DEFULT_ADDR = 0x44
+SI7021_I2C_DEFAULT_ADDR = 0x44
 
 CMD_MEASURE_RELAVTIVE_HUMIDITY = 0xF5
 CMD_MEASURE_TEMPERATURE = 0xF3
@@ -139,7 +141,6 @@ class device_status(object):
 	self.light_min = 0
 	self.light_max = 0
 
-=======
     def sample():
 	
 	esp.sleep_type(SLEEP_NONE)
