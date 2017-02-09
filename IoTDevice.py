@@ -61,33 +61,35 @@ def publish_full_data(timestamp,
  
 #SI7021 temperature sensor Address and commands
 
-SI7021_I2C_DEFAULT_ADDR = 0x44
 
-CMD_MEASURE_RELAVTIVE_HUMIDITY = 0xF5
-CMD_MEASURE_TEMPERATURE = 0xF3
 
 class Si7021(object):# Code copied from Si7021 library, may need to be changed
-    def __init__(self, i2c_addr = SI7021_I2C_DEFAULT_ADDR):
-        self.addr = i2c_addr
+    SI7021_I2C_DEFAULT_ADDR = 0x40
+    CMD_MEASURE_RELATIVE_HUMIDITY = 0xF5
+    CMD_MEASURE_TEMPERATURE = 0xF3
+#    def __init__(self, i2c_in, i2c_addr = Si7021.SI7021_I2C_DEFAULT_ADDR):
+    def __init__(self, i2c_in):
+        self.addr = Si7021.SI7021_I2C_DEFAULT_ADDR
         self.cbuffer = bytearray(2)
         self.cbuffer[1] = 0x00
-        self.i2c = I2C(scl=Pin(5), sda=Pin(4), freq=100000)
+        self.i2c = i2c_in
+        print(self.addr)
 
     def write_command(self, command_byte):
         self.cbuffer[0] = command_byte
         self.i2c.writeto(self.addr, self.cbuffer)
 
     def readTemp(self):
-        self.write_command(CMD_MEASURE_TEMPERATURE)
-        sleep_ms(25)
+        self.write_command(Si7021.CMD_MEASURE_TEMPERATURE)
+        time.sleep_ms(25)
         temp = self.i2c.readfrom(self.addr,3)
         temp2 = temp[0] << 8
         temp2 = temp2 | temp[1]
         return (175.72 * temp2 / 65536) - 46.85
 
     def readRH(self):
-        self.write_command(CMD_MEASURE_RELATIVE_HUMIDITY)
-        sleep_ms(25)
+        self.write_command(Si7021.CMD_MEASURE_RELATIVE_HUMIDITY)
+        time.sleep_ms(25)
         rh = self.i2c.readfrom(self.addr, 3)
         rh2 = rh[0] << 8
         rh2 = rh2 | rh[1]
@@ -119,6 +121,19 @@ def ServoMove():# Opens servo motor
 class device_status(object):
     
     def __init__(self):
+        self.pin_4 = Pin(4)
+        self.pin_5 = Pin(5)
+
+        #-1 selects software I2C implementation since no dedicated hardware
+        self.i2c = I2C(-1, self.pin_5, self.pin_4) # Setup the i2c channel
+
+        self.L_sensor = tsl2561.TSL2561(self.i2c) # Setup the light sesnor
+
+        self.temp_sensor = Si7021(self.i2c) # Setupthe temperature and humidity Sensor 
+        self.servo = machine.PWM(machine.Pin(12), freq = 50) # Setup for servo motor
+        
+        self.servo.duty(30) #Setting the inital posistion of the servo motor
+        
         self.average_every = 4       
         self.average_count = 0    
            
@@ -220,13 +235,7 @@ class device_status(object):
 
 
 #if __name__ == '__main__':
-def run():   
-    i2c = I2C(-1, Pin(5), Pin(4)) # Setup the i2c channel
-    L_sensor = tsl2561.TSL2561(i2c) # Setup the light sesnor
-    temp_sensor = Si7021() # Setupthe temperature and humidity Sensor 
-    servo = machine.PWM(machine.Pin(12), freq = 50) # Setup for servo motor
-    
-    servo.duty(30) #Setting the inital posistion of the servo motor
+#def run():   
 
 #    mike = device_status()
 #    
@@ -252,5 +261,3 @@ def run():
 #    # put the device to sleep
 #    machine.deepsleep()
  
-
-
