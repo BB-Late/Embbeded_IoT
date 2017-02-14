@@ -148,17 +148,19 @@ class device_status(object):
         self.need_water = False # Flag for when the water needs to be topped up
         self.min_water_level = 10
         
-        self.water_avg = 0
-        self.water_min = 0
-        self.water_max = 0
+        collectData()
         
-        self.temp_avg = 0
-        self.temp_min = 0
-        self.temp_max = 0
+        self.water_avg = self.water
+        self.water_min = self.water
+        self.water_max = self.water
         
-        self.light_avg = 0
-        self.light_min = 0
-        self.light_max = 0
+        self.temp_avg = self.temp
+        self.temp_min = self.temp
+        self.temp_max = self.temp
+        
+        self.light_avg = self.light
+        self.light_min = self.light
+        self.light_max = self.light
     
     def collectData(self):#Data collection all at once 
         self.light = L_sensor.read()
