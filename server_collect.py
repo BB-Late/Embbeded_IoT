@@ -5,6 +5,9 @@ import time
 
 base_topic = "/esys/FPJA"
 server_topic = base_topic + "/server"
+index_topic = server_topic + "/index"
+avg_topic = server_topic + "/avg"
+
 
 def on_connect(client, userdata, flags, rc):
     m="Connected with client1_id  "+str(client)
@@ -25,16 +28,17 @@ def payload_to_str(payload):
 
 msg_queue =[] 
 
-#broker_address="192.168.0.10"
-broker_address="127.0.0.1"
+broker_address="192.168.0.10"
+#broker_address="127.0.0.1"
 client1 = mqtt.Client("P1")    #create new instance
 client1.on_connect= on_connect        #attach function to callback
 client1.on_message= on_message        #attach function to callback
 
 time.sleep(1)
-client1.connect(broker_address, port=1024)      #connect to broker
+#client1.connect(broker_address, port=1024)      #connect to broker
+client1.connect(broker_address)      #connect to broker
 client1.loop_start()    #start the loop
-client1.subscribe(server_topic, 2)
+client1.subscribe(avg_topic, 2)
 
 end = False
 while not end:
