@@ -150,7 +150,7 @@ class device_status(object):
 
         self.water_level = 10 # Full water level will be 10, needs changing at zero
         self.need_water = False # Flag for when the water needs to be topped up
-        self.min_water_level = 10
+        #self.min_water_level = 10 # Water level that needs to be crossed before it is watered
         
         collectData()
         
@@ -165,6 +165,17 @@ class device_status(object):
         self.light_avg = self.light
         self.light_min = self.light
         self.light_max = self.light
+
+        # Ideal Values for plant 
+        self.ideal_light = 15
+        self.ideal_temp = 22
+        self.ideal_water = 50
+        
+        # plant score
+        self.water_score = 0
+        self.temp_score = 0
+        self.light_score = 0 
+        self.total_score = 0 
     
     def collectData(self):#Data collection all at once 
         self.light = self.L_sensor.read()
@@ -194,6 +205,35 @@ class device_status(object):
     def get_sample_func(self):
 	return self.sample
 
+    def score_water(self):
+        if self.water <= 30:
+            self.water_score = (self.water/30)*50
+        elif self.water <= 70:
+            self.water_score = (math.fabs((self.water - self.ideal_water))/20)*50+50
+        elif self.water >70
+            self.water_score = ((100-self.water)/30)*50
+    
+    def score_temp(self):
+        value = (math.fabs(self.temp - self.ideal_temp))/ideal_temp)
+        if value <=0.05:
+            self.temp_score =((0.05-value)/0.05)*30 + 70
+        elif value <= 0.15
+            self.temp_score = ((0.15-value)/0.15)*40 + 30
+        else 
+            self.temp_score = (1-value)*30
+            
+    def score_light(self):
+        value = (math.fabs(self.temp - self.ideal_temp))/ideal_temp)
+        if value <=0.05:
+            self.light_score =((0.05-value)/0.05)*30 + 70
+        elif value <= 0.15
+            self.light_score = ((0.15-value)/0.15)*40 + 30
+        else 
+            self.light_score = (1-value)*30
+            
+    def score_total(self):
+        self.score_total = self.light_score/3 + self.temp_score/3 + self.water_score/3
+    
     def sample(self):
 	
     
@@ -217,10 +257,6 @@ class device_status(object):
         #self.water_level = 0
         
         self.collectData()
-        
-        #Check to see if the plant needs water
-        if self.water < self.min_water_level:
-            self.watering()
         
         #Change to rolling average
 
