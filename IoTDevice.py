@@ -5,6 +5,7 @@ import network
 #import si7021   # need to get library from here https://gist.github.com/minyk/7c3070bc1c2766633b8ff1d4d51089cf
 from machine import I2C, Pin
 import machine 
+import esp 
 from umqtt.simple import MQTTClient
 
 machine_name = machine.unique_id() 
@@ -73,7 +74,6 @@ class Si7021(object):# Code copied from Si7021 library, may need to be changed
         self.cbuffer = bytearray(2)
         self.cbuffer[1] = 0x00
         self.i2c = i2c_in
-        print(self.addr)
 
     def write_command(self, command_byte):
         self.cbuffer[0] = command_byte
@@ -129,7 +129,8 @@ class device_status(object):
 
         self.L_sensor = tsl2561.TSL2561(self.i2c) # Setup the light sesnor
 
-        self.temp_sensor = Si7021(self.i2c) # Setupthe temperature and humidity Sensor 
+        # Setupthe temperature and humidity Sensor 
+        self.temp_sensor = Si7021(self.i2c)
         self.servo = machine.PWM(machine.Pin(12), freq = 50) # Setup for servo motor
         
         self.servo.duty(30) #Setting the inital posistion of the servo motor
@@ -138,11 +139,14 @@ class device_status(object):
         self.average_count = 0    
            
         self.start_time = time.time() # The starting time of data collection
-        self.previous_time = 0; # the ti0me before the last sample
+        self.last_sense_t = time.time(); # the ti0me before the last sample
         
         self.light = 0
         self.temp = 0
         self.water = 0
+        
+        self.index = 0
+        self.last_watered = 0  
 
         self.water_level = 10 # Full water level will be 10, needs changing at zero
         self.need_water = False # Flag for when the water needs to be topped up
@@ -163,9 +167,9 @@ class device_status(object):
         self.light_max = self.light
     
     def collectData(self):#Data collection all at once 
-        self.light = L_sensor.read()
-        self.temp = temp_sensor.readTemp()
-        self.water = temp_sensor.readRH()
+        self.light = self.L_sensor.read()
+        self.temp = self.temp_sensor.readTemp()
+        self.water = self.temp_sensor.readRH()
         
     def MaxValue(self, old_max, new_value):
         if new_value > old_max:
@@ -186,19 +190,27 @@ class device_status(object):
             self.need_water = False
             ServoMove()
             self.water_level -= 1
-            last_watered = time.time()
+            self.last_watered = time.time()
+    def get_sample_func(self):
+	return self.sample
 
     def sample(self):
+	
     
-        esp.sleep_type(SLEEP_NONE)
+        esp.sleep_type(esp.SLEEP_NONE)
 
-        self.last_sensed = time.time()
-        self.averaging_time = self.last_sensed - self.previous_time
-        self.total_time = self.last_sensed - self.start_time
-        self.previous_time = self.last_sensed
-        report_basic()
-        
+	
+
+        self.curr_sense_t = time.time()
+        self.averaging_time = self.curr_sense_t - self.last_sense_t
+        self.total_time = self.curr_sense_t - self.start_time
+        print(time.localtime(self.last_sense_t), self.curr_sense_t, self.start_time, self.last_sense_t)
+        self.last_sense_t = self.curr_sense_t
+        self.report_basic()
+       
+
         self.index = 0
+	
 
         #last_watered = 0
 
@@ -212,29 +224,37 @@ class device_status(object):
         
         #Change to rolling average
 
+	
         self.water_avg = self.water_avg + self.water*(self.averaging_time/self.total_time)
-        self.water_min = MinValue(self.water_min, self.water)
-        self.water_max = MaxValue(self.water_max, self.water)
+        self.water_min = self.MinValue(self.water_min, self.water)
+        self.water_max = self.MaxValue(self.water_max, self.water)
         
         self.temp_avg = self.temp_avg + self.temp*(self.averaging_time/self.total_time)
-        self.temp_min = MinValue(self.temp_min, self.temp)
-        self.temp_max = MaxValue(self.temp_max, self.temp)
+        self.temp_min = self.MinValue(self.temp_min, self.temp)
+        self.temp_max = self.MaxValue(self.temp_max, self.temp)
         
         self.light_avg = self.light_avg + self.light*(self.averaging_time/self.total_time)
-        self.light_min = MinValue(self.light_min, self.light)
-        self.light_max = MaxValue(self.light_max, self.light)
+        self.light_min = self.MinValue(self.light_min, self.light)
+        self.light_max = self.MaxValue(self.light_max, self.light)
 
-
+        
+	
         self.average_count += 1
         if self.average_count == self.average_every:
-        	report_full()
-        esp.sleep_type(SLEEP_LIGHT)
+        	self.report_full()
+                self.average_count = 0
 
-    def report_basic():
-	publish_full_data(self.last_sensed, self.index, self.water_level) 
+        print ("Sensed: ", self.water, self.light, self.temp)
 	
-    def report_full():
-	publish_full_data(self.last_sensed, 
+
+        esp.sleep_type(esp.SLEEP_LIGHT)
+	
+
+    def report_basic(self):
+	publish_index(self.curr_sense_t, self.index, self.last_watered, self.water_level) 
+	
+    def report_full(self):
+	publish_full_data(self.curr_sense_t, 
                         self.water_avg, self.water_min, self.water_max, 
                         self.temp_avg, self.temp_min, self.temp_max, 
                         self.light_avg, self.light_min, self.light_max, 
@@ -243,15 +263,27 @@ class device_status(object):
 
 
 #if __name__ == '__main__':
-#def run():   
+mike = device_status()
+def run():   
 
-#    mike = device_status()
-#    
-#    sense_time_sec = 2 
-#    sense_time =  sense_time_sec*1000
-#
-#    tim = machine.Timer(-1)
-#    tim.init(period=5000, mode=Timer.PERIODIC, callback=mike.sense())	
+ 
+
+    sense_time_sec = 2 
+    sense_time =  sense_time_sec*1000
+
+    time.sleep(sense_time_sec)
+    tim = machine.Timer(-1)
+    tim.init(period=sense_time, mode=tim.PERIODIC, callback=mike.get_sample_func())	
+    end = False
+    while not end:
+        print("Looping")
+        try:
+            time.sleep(5)
+        except KeyboardInterrupt:
+    	    tim.init(period=sense_time, mode=tim.ONE_SHOT, 
+					callback=lambda t : 0) 
+            print("Ending data collection")
+            end = True
     
 
     #TODO: Implement deepsleep
