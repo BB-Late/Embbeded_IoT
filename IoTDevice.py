@@ -83,17 +83,17 @@ class Si7021(object):# Code copied from Si7021 library, may need to be changed
         self.write_command(Si7021.CMD_MEASURE_TEMPERATURE)
         time.sleep_ms(25)
         temp = self.i2c.readfrom(self.addr,3)
-        temp2 = temp[0] << 8
-        temp2 = temp2 | temp[1]
-        return (175.72 * temp2 / 65536) - 46.85
+        temp2 = temp[0] << 8 #Shifts the bits by 8 over to the right
+        temp2 = temp2 | temp[1] # Shift least significant byte to the back
+        return (175.72 * temp2 / 65536) - 46.85 # calculation from data sheet
 
     def readRH(self):
         self.write_command(Si7021.CMD_MEASURE_RELATIVE_HUMIDITY)
         time.sleep_ms(25)
         rh = self.i2c.readfrom(self.addr, 3)
-        rh2 = rh[0] << 8
-        rh2 = rh2 | rh[1]
-        return (125 * rh2 / 65536) - 6
+        rh2 = rh[0] << 8 # shift bits by 8 over to the right
+        rh2 = rh2 | rh[1] # Shift least significant byte to the back
+        return (125 * rh2 / 65536) - 6 # Calculation from data sheet
     
 
  #----------------------------------------------------------------------------------------------------------
@@ -146,6 +146,8 @@ class device_status(object):
 
         self.water_level = 10 # Full water level will be 10, needs changing at zero
         self.need_water = False # Flag for when the water needs to be topped up
+        self.min_water_level = 10
+        
         self.water_avg = 0
         self.water_min = 0
         self.water_max = 0
@@ -201,6 +203,10 @@ class device_status(object):
         #self.water_level = 0
         
         self.collectData()
+        
+        #Check to see if the plant needs water
+        if self.water < self.min_water_level:
+            self.watering()
         
         #Change to rolling average
 
