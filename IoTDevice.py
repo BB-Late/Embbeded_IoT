@@ -1,10 +1,15 @@
-import utime as time
+import utime
+#import time 
+import machine 
+
+utc = (2017, 02, 14, 2, 17, 26, 28, 0)
+machine.RTC().datetime(utc)
+
 import tsl2561 # Library for light sensor
 import ujson 
 import network
 #import si7021   # need to get library from here https://gist.github.com/minyk/7c3070bc1c2766633b8ff1d4d51089cf
 from machine import I2C, Pin
-import machine 
 import esp 
 from umqtt.simple import MQTTClient
 
@@ -12,8 +17,11 @@ machine_name = machine.unique_id()
 
 
 
-base_topic = "esys/FPJA/"
-server_topic = base_topic + "server/"
+base_topic = "/esys/FPJA"
+server_topic = base_topic + "/server"
+index_topic = server_topic + "/index"
+avg_topic = server_topic + "/avg"
+ 
 def publish(topic, data_json):
     client = MQTTClient(machine_name,"192.168.0.10")
     client.connect()
@@ -34,7 +42,7 @@ def publish_index(timestamp, index, last_watered, water_level):
                     "last_watered": last_watered,
                     "water_level": water_level
                     }
-    publish(server_topic, json_payload)
+    publish(index_topic, json_payload)
 
 def publish_full_data(timestamp, 
                         water_avg, water_min, water_max, 
@@ -58,7 +66,7 @@ def publish_full_data(timestamp,
                         "max": ligh_max
                         },
                     }
-    publish(server_topic, json_payload)
+    publish(avg_topic, json_payload)
  
 #SI7021 temperature sensor Address and commands
 
@@ -81,7 +89,7 @@ class Si7021(object):# Code copied from Si7021 library, may need to be changed
 
     def readTemp(self):
         self.write_command(Si7021.CMD_MEASURE_TEMPERATURE)
-        time.sleep_ms(25)
+        utime.sleep_ms(25)
         temp = self.i2c.readfrom(self.addr,3)
         temp2 = temp[0] << 8 #Shifts the bits by 8 over to the right
         temp2 = temp2 | temp[1] # Shift least significant byte to the back
@@ -89,7 +97,7 @@ class Si7021(object):# Code copied from Si7021 library, may need to be changed
 
     def readRH(self):
         self.write_command(Si7021.CMD_MEASURE_RELATIVE_HUMIDITY)
-        time.sleep_ms(25)
+        utime.sleep_ms(25)
         rh = self.i2c.readfrom(self.addr, 3)
         rh2 = rh[0] << 8 # shift bits by 8 over to the right
         rh2 = rh2 | rh[1] # Shift least significant byte to the back
@@ -111,16 +119,18 @@ def ReadHumidity(humid): # Reading from Temperature library
     
 #--------------------------------------------------------------------------------------------------------
 
+
     
 def ServoMove():# Opens servo motor 
     servo.duty(130)
-    time.sleep(0.5)
+    utime.sleep(0.5)
     servo.duty(30)
     
 
 class device_status(object):
     
     def __init__(self):
+        print("Started device at: " , utime.localtime())
         self.pin_4 = Pin(4)
         self.pin_5 = Pin(5)
 
@@ -138,8 +148,8 @@ class device_status(object):
         self.average_every = 4       
         self.average_count = 0    
            
-        self.start_time = time.time() # The starting time of data collection
-        self.last_sense_t = time.time(); # the ti0me before the last sample
+        self.start_time = utime.time() # The starting time of data collection
+        self.last_sense_t = utime.time(); # the ti0me before the last sample
         
         self.light = 0
         self.temp = 0
@@ -201,9 +211,7 @@ class device_status(object):
             self.need_water = False
             ServoMove()
             self.water_level -= 1
-            self.last_watered = time.time()
-    def get_sample_func(self):
-	return self.sample
+            self.last_watered = utime.time()
 
     def score_water(self):
         if self.water <= 30:
@@ -234,17 +242,16 @@ class device_status(object):
     def score_total(self):
         self.score_total = self.light_score/3 + self.temp_score/3 + self.water_score/3
     
-    def sample(self):
-	
+    def sample(self, tim):	
     
         esp.sleep_type(esp.SLEEP_NONE)
 
 	
 
-        self.curr_sense_t = time.time()
+        self.curr_sense_t = utime.time()
         self.averaging_time = self.curr_sense_t - self.last_sense_t
         self.total_time = self.curr_sense_t - self.start_time
-        print(time.localtime(self.last_sense_t), self.curr_sense_t, self.start_time, self.last_sense_t)
+        print(utime.localtime(self.last_sense_t), utime.localtime(self.curr_sense_t),utime.localtime(self.start_time))
         self.last_sense_t = self.curr_sense_t
         self.report_basic()
        
@@ -274,47 +281,56 @@ class device_status(object):
         self.light_max = self.MaxValue(self.light_max, self.light)
 
         
-	
         self.average_count += 1
         if self.average_count == self.average_every:
         	self.report_full()
                 self.average_count = 0
-
-        print ("Sensed: ", self.water, self.light, self.temp)
 	
 
         esp.sleep_type(esp.SLEEP_LIGHT)
 	
 
     def report_basic(self):
-	publish_index(self.curr_sense_t, self.index, self.last_watered, self.water_level) 
+        publish_index(  self.t_to_timestamp(self.curr_sense_t), 
+                        self.index, 
+                        self.last_watered, 
+                        self.water_level) 
 	
     def report_full(self):
-	publish_full_data(self.curr_sense_t, 
+	publish_full_data(
+                        self.t_to_timestamp(self.curr_sense_t), 
                         self.water_avg, self.water_min, self.water_max, 
                         self.temp_avg, self.temp_min, self.temp_max, 
                         self.light_avg, self.light_min, self.light_max, 
                         )
-	
+    @staticmethod
+    def t_to_timestamp(t_from_e):
+        t = utime.localtime(t_from_e) 
+        return " ".join([str(t[2]),  str(t[1]), str(t[3]), str(t[4])]) 
+
+    def pretty_print_sampe(self):
+        return ""
+    
+    def pretty_print_avg(self):
+        return ""
 
 
 #if __name__ == '__main__':
-mike = device_status()
 def run():   
-
- 
+    print(utime.localtime())
+    mike = device_status()
 
     sense_time_sec = 2 
     sense_time =  sense_time_sec*1000
 
-    time.sleep(sense_time_sec)
+    utime.sleep(sense_time_sec)
     tim = machine.Timer(-1)
-    tim.init(period=sense_time, mode=tim.PERIODIC, callback=mike.get_sample_func())	
+    tim.init(period=sense_time, mode=tim.PERIODIC, callback=mike.sample)	
     end = False
     while not end:
         print("Looping")
         try:
-            time.sleep(5)
+            utime.sleep(5)
         except KeyboardInterrupt:
     	    tim.init(period=sense_time, mode=tim.ONE_SHOT, 
 					callback=lambda t : 0) 
