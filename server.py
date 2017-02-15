@@ -2,14 +2,17 @@
 
 ############## functions ##################
 
+columns = {"water": 4, "temp": 7, "light": 10, "index": 13}
+
 #function that returns the average, max, min
-def avg_max_min(data, column, period):
+def avg_max_min(data, column_name, period):
+        column = columns[column_name]
 	avg_col = column
 	max_col = column +1
 	min_col = column +2
-	print len(data)
-	print range(len(data))
-	if (period == 1):		#daily values
+#	print len(data)
+#	print range(len(data))
+	if (period == "Daily"):		#daily values
 		sm = data[0][avg_col]
 		mx = data[0][max_col]
 		mn = data[0][min_col]
@@ -26,7 +29,7 @@ def avg_max_min(data, column, period):
 		return (sm/len(data), mx, mn)
 
 
-	if (period == 2):		#weekly values
+	if (period == "Weekly"):		#weekly values
 		sm = data[0][avg_col]
 		mx = data[0][max_col]
 		mn = data[0][min_col]
@@ -45,10 +48,11 @@ def avg_max_min(data, column, period):
 		return (sm/len(data), mx, mn)
 
 ### only for plant index ###
-def avg_index(data, column, period):
+def avg_index(data, column_name, period):
+        column = columns[column_name]
 	avg_col = column
 
-	if (period == 1):		#daily values
+	if (period == "Daily"):		#daily values
 		sm = data[0][avg_col]
 		count = 0;
 		for i in range(len(data)-1):
@@ -59,7 +63,7 @@ def avg_index(data, column, period):
 		return sm/len(data)
 
 
-	if (period == 2):		#weekly values
+	if (period == "Weekly"):		#weekly values
 		sm = data[0][avg_col]
 		count = 0;
 		for i in range(len(data)-1):
@@ -79,7 +83,8 @@ def avg_index(data, column, period):
 
 #upload data file
 data = []
-with open('datalog.txt') as inputfile:
+#with open('datalog.txt') as inputfile:
+with open('real_datalog.txt') as inputfile:
     	for row in inputfile:
 	    	data.append(row.strip().split(' '))
 
@@ -88,18 +93,34 @@ data = [map(float, i) for i in data]  #data: day month hours minutes water(avg,m
 print data
 
 #calculate values for water
-(water_avg_daily, water_max_daily, water_min_daily) = avg_max_min(data, 4, 1)
-(water_avg_weekly, water_max_weekly, water_min_weekly) = avg_max_min(data, 4, 2)
+#(water_avg_daily, water_max_daily, water_min_daily) = avg_max_min(data, 4, 1)
+#(water_avg_weekly, water_max_weekly, water_min_weekly) = avg_max_min(data, 4, 2)
+#
+##temperature
+#(temperature_avg_daily, temperature_max_daily, temperature_min_daily) = avg_max_min(data, 7, 1)
+#(temperature_avg_weekly, temperature_max_weekly, temperature_min_weekly) = avg_max_min(data, 7, 2)
+#
+##light
+#(light_avg_daily, light_max_daily, light_min_daily) = avg_max_min(data, 10, 1)
+#(light_avg_weekly, light_max_weekly, light_min_weekly) = avg_max_min(data, 10, 2)
+#
+##index
+#(index_avg_daily) = avg_index(data, 13, 1)
+#(index_avg_weekly) = avg_index(data, 13, 2)
+#
+#calculate values for water
+(water_avg_daily, water_max_daily, water_min_daily) = avg_max_min(data, "water", "Daily")
+(water_avg_weekly, water_max_weekly, water_min_weekly) = avg_max_min(data, "water", "Weekly")
 
 #temperature
-(temperature_avg_daily, temperature_max_daily, temperature_min_daily) = avg_max_min(data, 7, 1)
-(temperature_avg_weekly, temperature_max_weekly, temperature_min_weekly) = avg_max_min(data, 7, 2)
+(temperature_avg_daily, temperature_max_daily, temperature_min_daily) = avg_max_min(data, "temp", "Daily")
+(temperature_avg_weekly, temperature_max_weekly, temperature_min_weekly) = avg_max_min(data, "temp", "Weekly")
 
 #light
-(light_avg_daily, light_max_daily, light_min_daily) = avg_max_min(data, 10, 1)
-(light_avg_weekly, light_max_weekly, light_min_weekly) = avg_max_min(data, 10, 2)
+(light_avg_daily, light_max_daily, light_min_daily) = avg_max_min(data, "light", "Daily")
+(light_avg_weekly, light_max_weekly, light_min_weekly) = avg_max_min(data, "light", "Weekly")
 
 #index
-(index_avg_daily) = avg_index(data, 13, 1)
-(index_avg_weekly) = avg_index(data, 13, 2)
+(index_avg_daily) = avg_index(data, "index", "Daily")
+(index_avg_weekly) = avg_index(data, "index", "Weekly")
 
