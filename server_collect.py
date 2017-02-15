@@ -89,8 +89,7 @@ def reply_avg(avg_type, avg_length):
             avg_lengths = [avg_length]
 
     elif not avg_type in avg_types or not avg_length in avg_lengts:
-        raise ValueError("Avg_type not recognized")
-
+        return None
     answ = ""
     for avg_type, avg_length in list(itertools.product(avg_types, avg_lengths)):
         if avg_type == "index":
@@ -161,6 +160,8 @@ while not end:
                 elif rqst["rqst"] == "avg":
                     if "type" in rqst and "length" in rqst: 
                         reply = reply_avg(rqst["type"], rqst["length"])
+                        if reply == None:
+                            raise ValueError()
                     else:
                         raise ValueError()
                 else:
