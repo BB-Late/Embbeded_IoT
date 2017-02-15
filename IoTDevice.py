@@ -121,7 +121,7 @@ def ReadHumidity(humid): # Reading from Temperature library
 
 
     
-def ServoMove():# Opens servo motor 
+def ServoMove():# Moves the servo motor 180 degrees and back again
     servo.duty(130)
     utime.sleep(0.5)
     servo.duty(30)
@@ -206,7 +206,7 @@ class device_status(object):
         else:
             return old_min
             
-    def watering(self):
+    def watering(self): 
         if self.water_level == 0:# Check if the water needs to be toppped up
             self.need_water = True
         else:
@@ -215,33 +215,34 @@ class device_status(object):
             self.water_level -= 1
             self.last_watered = utime.time()
 
-    def score_water(self):
-        if self.water <= 30:
+    def score_water(self): # Calculating the score for the humidity
+        if self.water <= 30: # Less that 30% humidity gives a score between 0 and 50
             self.water_score = (self.water/30)*50
-        elif self.water <= 70:
+        elif self.water <= 70: #Up to 50% humidity gives a score from 50 to 100
+                                        #humidity from 50% to 70% gives a score from 100 to 50
             self.water_score = (math.fabs((self.water - self.ideal_water))/20)*50+50
-        elif self.water >70
+        elif self.water >70 # More than 70% humidity gives a decreasing score form 50 to 0
             self.water_score = ((100-self.water)/30)*50
     
     def score_temp(self):
         value = (math.fabs(self.temp - self.ideal_temp))/ideal_temp)
-        if value <=0.05:
+        if value <=0.05: # A temperature within 5% of the ideal gives a score from 100 to 70
             self.temp_score =((0.05-value)/0.05)*30 + 70
-        elif value <= 0.15
+        elif value <= 0.15 #Within 15% of the ideal temperature gives a score from 70 to 30
             self.temp_score = ((0.15-value)/0.15)*40 + 30
-        else 
+        else #A temperature over 15% this gives a score from 30 to 0
             self.temp_score = (1-value)*30
             
     def score_light(self):
         value = (math.fabs(self.temp - self.ideal_temp))/ideal_temp)
-        if value <=0.05:
+        if value <=0.05:# A light reading within 5% of the ideal gives a score from 100 to 70
             self.light_score =((0.05-value)/0.05)*30 + 70
-        elif value <= 0.15
+        elif value <= 0.15 #Within 15% of the ideal light intensity gives a score from 70 to 30
             self.light_score = ((0.15-value)/0.15)*40 + 30
-        else 
+        else #A light reading over 15% this gives a score from 30 to 0
             self.light_score = (1-value)*30
             
-    def score_total(self):
+    def score_total(self): # The overal score is the average of the light, temperature and humdity scores
         self.score_total = self.light_score/3 + self.temp_score/3 + self.water_score/3
     
     def print_results(self):
@@ -293,7 +294,7 @@ class device_status(object):
         	self.report_full()
                 self.average_count = 0
 	
-        self.watering_time -= 1
+        self.watering_time -= 1 
         if self.watering_time == 0
             self.watering()
             self.watering = 6
