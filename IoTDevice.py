@@ -186,6 +186,8 @@ class device_status(object):
         self.temp_score = 0
         self.light_score = 0 
         self.total_score = 0 
+        
+        self.watering_time = 6
     
     def collectData(self):#Data collection all at once 
         self.light = self.L_sensor.read()
@@ -291,7 +293,11 @@ class device_status(object):
         	self.report_full()
                 self.average_count = 0
 	
-
+        self.watering_time -= 1
+        if self.watering_time == 0
+            self.watering()
+            self.watering = 6
+        
         esp.sleep_type(esp.SLEEP_LIGHT)
 	
 
