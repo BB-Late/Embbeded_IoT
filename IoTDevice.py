@@ -2,7 +2,7 @@ import utime
 #import time 
 import machine 
 
-utc = (2017, 02, 14, 2, 17, 26, 28, 0)
+utc = (2017, 02, 15, 3, 16, 58, 13, 0)
 machine.RTC().datetime(utc)
 
 import tsl2561 # Library for light sensor
@@ -10,7 +10,8 @@ import ujson
 import network
 #import si7021   # need to get library from here https://gist.github.com/minyk/7c3070bc1c2766633b8ff1d4d51089cf
 from machine import I2C, Pin
-import esp 
+import esp
+import math
 from umqtt.simple import MQTTClient
 
 machine_name = machine.unique_id() 
@@ -27,7 +28,6 @@ def publish(topic, data_json):
     client.connect()
     #client.publish(topic,bytes(data,'utf-8'))
     client.publish(topic, ujson.dumps(data_json))
-    
     
 def networkConnection():
     ap_if = network.WLAN(network.AP_IF)
@@ -162,7 +162,7 @@ class device_status(object):
         self.need_water = False # Flag for when the water needs to be topped up
         #self.min_water_level = 10 # Water level that needs to be crossed before it is watered
         
-        collectData()
+        self.collectData()
         
         self.water_avg = self.water
         self.water_min = self.water
@@ -218,29 +218,32 @@ class device_status(object):
             self.water_score = (self.water/30)*50
         elif self.water <= 70:
             self.water_score = (math.fabs((self.water - self.ideal_water))/20)*50+50
-        elif self.water >70
+        elif self.water >70:
             self.water_score = ((100-self.water)/30)*50
     
     def score_temp(self):
-        value = (math.fabs(self.temp - self.ideal_temp))/ideal_temp)
+        value = (math.fabs(self.temp - self.ideal_temp))/self.ideal_temp
         if value <=0.05:
             self.temp_score =((0.05-value)/0.05)*30 + 70
-        elif value <= 0.15
+        elif value <= 0.15:
             self.temp_score = ((0.15-value)/0.15)*40 + 30
-        else 
+        else: 
             self.temp_score = (1-value)*30
             
     def score_light(self):
-        value = (math.fabs(self.temp - self.ideal_temp))/ideal_temp)
+        value = (math.fabs(self.temp - self.ideal_temp))/self.ideal_temp
         if value <=0.05:
             self.light_score =((0.05-value)/0.05)*30 + 70
-        elif value <= 0.15
+        elif value <= 0.15:
             self.light_score = ((0.15-value)/0.15)*40 + 30
-        else 
+        else: 
             self.light_score = (1-value)*30
             
     def score_total(self):
-        self.score_total = self.light_score/3 + self.temp_score/3 + self.water_score/3
+        self.score_water()
+        self.score_temp()
+        self.score_light()
+        self.index = self.light_score/3 + self.temp_score/3 + self.water_score/3
     
     def sample(self, tim):	
     
@@ -255,12 +258,6 @@ class device_status(object):
         self.last_sense_t = self.curr_sense_t
         self.report_basic()
        
-
-        self.index = 0
-	
-
-        #last_watered = 0
-
         #self.water_level = 0
         
         self.collectData()
@@ -280,6 +277,7 @@ class device_status(object):
         self.light_min = self.MinValue(self.light_min, self.light)
         self.light_max = self.MaxValue(self.light_max, self.light)
 
+        self.score_total()
         
         self.average_count += 1
         if self.average_count == self.average_every:
@@ -293,7 +291,7 @@ class device_status(object):
     def report_basic(self):
         publish_index(  self.t_to_timestamp(self.curr_sense_t), 
                         self.index, 
-                        self.last_watered, 
+                        self.t_to_timestamp(self.last_watered), 
                         self.water_level) 
 	
     def report_full(self):
@@ -306,7 +304,8 @@ class device_status(object):
     @staticmethod
     def t_to_timestamp(t_from_e):
         t = utime.localtime(t_from_e) 
-        return " ".join([str(t[2]),  str(t[1]), str(t[3]), str(t[4])]) 
+#        return " ".join([str(t[2]),  str(t[1]), str(t[3]), str(t[4])]) 
+        return {"Month": t[2], "Day": t[1], "Hour": (t[3]), "Min" : t[4]} 
 
     def pretty_print_sampe(self):
         return ""
@@ -320,7 +319,7 @@ def run():
     print(utime.localtime())
     mike = device_status()
 
-    sense_time_sec = 2 
+    sense_time_sec = 5 
     sense_time =  sense_time_sec*1000
 
     utime.sleep(sense_time_sec)
