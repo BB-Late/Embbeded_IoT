@@ -1,7 +1,7 @@
 alias query_index='mosquitto_pub -h 192.168.0.10 -d -t /esys/FPJA/server/rqst -m "{\"rqst\": \"index\"}"'
 alias query_avg_day='mosquitto_pub -h 192.168.0.10 -d -t /esys/FPJA/server/rqst -m "{\"rqst\": \"avg\", \"type\": \"all\", \"length\": \"Daily\"}"'
 alias query_avg_week='mosquitto_pub -h 192.168.0.10 -d -t /esys/FPJA/server/rqst -m "{\"rqst\": \"avg\", \"type\": \"all\", \"length\": \"Weekly\"}"'
-alias query_light_water='mosquitto_pub -h 192.168.0.10 -d -t /esys/FPJA/server/rqst -m "{\"rqst\": \"avg\", \"type\": \"light\", \"length\": \"Daily\"}"'
+alias query_avg_water='mosquitto_pub -h 192.168.0.10 -d -t /esys/FPJA/server/rqst -m "{\"rqst\": \"avg\", \"type\": \"light\", \"length\": \"Daily\"}"'
 alias query_avg_temp='mosquitto_pub -h 192.168.0.10 -d -t /esys/FPJA/server/rqst -m "{\"rqst\": \"avg\", \"type\": \"temp\", \"length\": \"Daily\"}"'
 alias query_avg_index='mosquitto_pub -h 192.168.0.10 -d -t /esys/FPJA/server/rqst -m "{\"rqst\": \"avg\", \"type\": \"index\", \"length\": \"Daily\"}"'
 alias query_bad='mosquitto_pub -h 192.168.0.10 -d -t /esys/FPJA/server/rqst -m "{\"rqst\": \"avg\", \"typ\": \"index\", \"length\": \"Daily\"}"'

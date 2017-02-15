@@ -2,7 +2,7 @@ import utime
 #import time 
 import machine 
 
-utc = (2017, 02, 15, 3, 19, 50, 56, 0)
+utc = (2017, 02, 15, 3, 20, 14, 05, 0)
 machine.RTC().datetime(utc)
 
 import tsl2561 # Library for light sensor
@@ -223,7 +223,7 @@ class device_status(object):
             self.temp_score = (1-value)*30
             
     def score_light(self):
-        value = (self.ideal_light - self.light)/self.ideal_light
+        value = self.light/self.ideal_light
         if value >= 1:
             self.light_score = 100
         else:

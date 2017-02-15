@@ -125,7 +125,7 @@ client1.message_callback_add(avg_topic, on_avg_message)
 client1.message_callback_add(rqst_topic, on_rqst_message)
 client1.message_callback_add(index_topic, on_index_message)
 client1.subscribe(server_topic + "/#", 2)
-client1.publish(client_topic, "hi client", 2)
+client1.publish(client_topic, "Client connected to server", 2)
 client1.loop_start()    #start the loop
 
 end = False
