@@ -16,12 +16,11 @@ from umqtt.simple import MQTTClient
 
 machine_name = machine.unique_id() 
 
-
-
 base_topic = "/esys/FPJA"
 server_topic = base_topic + "/server"
 index_topic = server_topic + "/index"
 avg_topic = server_topic + "/avg"
+    
  
 def publish(topic, data_json):
     client = MQTTClient(machine_name,"192.168.0.10")
@@ -214,6 +213,9 @@ class device_status(object):
             ServoMove()
             self.water_level -= 1
             self.last_watered = utime.time()
+            
+    def refill(self):
+        self.water_level = 10 
 
     def score_water(self): # Calculating the score for the humidity
         if self.water <= 30: # Less that 30% humidity gives a score between 0 and 50
@@ -291,6 +293,7 @@ class device_status(object):
         if self.average_count == self.average_every:
         	self.report_full()
                 self.average_count = 0
+                
 	
         self.watering_time -= 1 
         if self.watering_time == 0
@@ -337,6 +340,10 @@ def run():
     utime.sleep(sense_time_sec)
     tim = machine.Timer(-1)
     tim.init(period=sense_time, mode=tim.PERIODIC, callback=mike.sample)	
+    
+    p0 = Pin(15, Pin.IN)
+    p0.irq(trigger=Pin.IRQ_RISING, handler=mike.refill)
+    
     end = False
     while not end:
         print("Looping")
