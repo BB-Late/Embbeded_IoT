@@ -168,7 +168,7 @@ class device_status(object):
         self.light_max = self.light
 
         # Ideal Values for plant 
-        self.ideal_light = 11
+        self.ideal_light = 15
         self.ideal_temp = 22
         self.ideal_water = 50
         
@@ -223,13 +223,11 @@ class device_status(object):
             self.temp_score = (1-value)*30
             
     def score_light(self):
-        value = (math.fabs(self.light - self.ideal_light))/self.ideal_light
-        if value <=0.05:# A light reading within 5% of the ideal gives a score from 100 to 70
-            self.light_score =((0.05-value)/0.05)*30 + 70
-        elif value <= 0.15: #Within 15% of the ideal light intensity gives a score from 70 to 30
-            self.light_score = ((0.15-value)/0.15)*40 + 30
-        else: #A light reading over 15% this gives a score from 30 to 0
-            self.light_score = (1-value)*30
+        value = (self.ideal_light - self.light)/self.ideal_light
+        if value >= 1:
+            self.light_score = 100
+        else:
+            self.light_score = value*100
             
     def score_total(self): # The overal score is the average of the light, temperature and humdity scores
         self.score_water()
