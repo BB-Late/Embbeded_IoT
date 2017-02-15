@@ -17,12 +17,12 @@ def on_connect(client, userdata, flags, rc):
 
 def on_avg_message(client1, userdata, message):
     msg_content = message.payload.decode("utf-8")
-    print("Avg received  "  , str(msg_content))
+    print("Avg received  "  , json.dumps(str(msg_content), indent = 2))
     heappush(msg_queue, msg_content)
 
 def on_index_message(client1, userdata, message):
     msg_content = message.payload.decode("utf-8")
-    print("Index received  "  ,str(msg_content))
+    print("Index received  "  , json.dumps(str(msg_content), indent = 2))
     global curr_index  
     curr_index = msg_content 
     print(curr_index)

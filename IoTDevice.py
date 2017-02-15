@@ -2,7 +2,7 @@ import utime
 #import time 
 import machine 
 
-utc = (2017, 02, 15, 3, 16, 58, 13, 0)
+utc = (2017, 02, 15, 3, 17, 40, 03, 0)
 machine.RTC().datetime(utc)
 
 import tsl2561 # Library for light sensor
@@ -121,10 +121,6 @@ def ReadHumidity(humid): # Reading from Temperature library
 
 
     
-def ServoMove():# Opens servo motor 
-    servo.duty(130)
-    utime.sleep(0.5)
-    servo.duty(30)
     
 
 class device_status(object):
@@ -211,10 +207,14 @@ class device_status(object):
             self.need_water = True
         else:
             self.need_water = False
-            ServoMove()
+            self.ServoMove()
             self.water_level -= 1
             self.last_watered = utime.time()
 
+    def ServoMove(self):# Opens servo motor 
+        self.servo.duty(130)
+        utime.sleep(2)
+        self.servo.duty(30)
     def score_water(self):
         if self.water <= 30:
             self.water_score = (self.water/30)*50
@@ -257,30 +257,37 @@ class device_status(object):
         esp.sleep_type(esp.SLEEP_NONE)
 
 	
+        if self.average_count == 0:
+            self.start_time = utime.time()
 
         self.curr_sense_t = utime.time()
         self.averaging_time = self.curr_sense_t - self.last_sense_t
         self.total_time = self.curr_sense_t - self.start_time
-        print(utime.localtime(self.last_sense_t), utime.localtime(self.curr_sense_t),utime.localtime(self.start_time))
         self.last_sense_t = self.curr_sense_t
         self.report_basic()
        
-        #self.water_level = 0
         
         self.collectData()
         
         #Change to rolling average
 
+	self.cur_avg_fraction = (self.total_time - self.averaging_time)\
+                                        /self.total_time
+	self.new_avg_fraction = (self.averaging_time)\
+                                        /self.total_time
 	
-        self.water_avg = self.water_avg + self.water*(self.averaging_time/self.total_time)
+        self.water_avg = self.water_avg*self.cur_avg_fraction \
+                        + self.water*self.new_avg_fraction
         self.water_min = self.MinValue(self.water_min, self.water)
         self.water_max = self.MaxValue(self.water_max, self.water)
         
-        self.temp_avg = self.temp_avg + self.temp*(self.averaging_time/self.total_time)
+        self.temp_avg = self.temp_avg*self.cur_avg_fraction \
+                        + self.temp*self.new_avg_fraction
         self.temp_min = self.MinValue(self.temp_min, self.temp)
         self.temp_max = self.MaxValue(self.temp_max, self.temp)
         
-        self.light_avg = self.light_avg + self.light*(self.averaging_time/self.total_time)
+        self.light_avg = self.light_avg*self.cur_avg_fraction \
+                        + self.light*self.new_avg_fraction
         self.light_min = self.MinValue(self.light_min, self.light)
         self.light_max = self.MaxValue(self.light_max, self.light)
 
@@ -292,7 +299,7 @@ class device_status(object):
                 self.average_count = 0
 	
         self.watering_time -= 1
-        if self.watering_time == 0
+        if self.watering_time == 0:
             self.watering()
             self.watering = 6
         
@@ -315,14 +322,15 @@ class device_status(object):
     @staticmethod
     def t_to_timestamp(t_from_e):
         t = utime.localtime(t_from_e) 
-#        return " ".join([str(t[2]),  str(t[1]), str(t[3]), str(t[4])]) 
         return {"Month": t[2], "Day": t[1], "Hour": (t[3]), "Min" : t[4]} 
 
     def pretty_print_sampe(self):
-        return ""
+        return "Sample: {} Lux {} C {} %RH {} \n\tPlant is {}% well".format(
+                        self.light, self.temp, self.water, sellf.index)
+
     
     def pretty_print_avg(self):
-        return ""
+        return "Rolling averages: "
 
 
 #if __name__ == '__main__':
@@ -348,18 +356,3 @@ def run():
             end = True
     
 
-    #TODO: Implement deepsleep
-#    # configure RTC.ALARM0 to be able to wake the device
-#    rtc = machine.RTC()
-#    rtc.irq(trigger=rtc.ALARM0, wake=machine.DEEPSLEEP)
-#    
-#    # check if the device woke from a deep sleep
-#    if machine.reset_cause() == machine.DEEPSLEEP_RESET:
-#        print('woke from a deep sleep')
-#    
-#    # set RTC.ALARM0 to fire after 10 seconds (waking the device)
-#    rtc.alarm(rtc.ALARM0, 10000)
-#    
-#    # put the device to sleep
-#    machine.deepsleep()
- 
