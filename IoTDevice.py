@@ -2,7 +2,7 @@ import utime
 #import time 
 import machine 
 
-utc = (2017, 02, 15, 3, 17, 40, 03, 0)
+utc = (2017, 02, 15, 3, 19, 50, 56, 0)
 machine.RTC().datetime(utc)
 
 import tsl2561 # Library for light sensor
@@ -14,7 +14,14 @@ import esp
 import math
 from umqtt.simple import MQTTClient
 
-machine_name = machine.unique_id() 
+machine_name = machine.unique_id()
+ap_if = network.WLAN(network.AP_IF)
+ap_if.active(False)
+sta_if = network.WLAN(network.STA_IF)
+sta_if.active(True)
+sta_if.connect('EEERover','exhibition')
+client = MQTTClient(machine_name,"192.168.0.10")
+client.connect()
 
 base_topic = "/esys/FPJA"
 server_topic = base_topic + "/server"
@@ -23,17 +30,8 @@ avg_topic = server_topic + "/avg"
     
  
 def publish(topic, data_json):
-    client = MQTTClient(machine_name,"192.168.0.10")
-    client.connect()
-    #client.publish(topic,bytes(data,'utf-8'))
     client.publish(topic, ujson.dumps(data_json))
     
-def networkConnection():
-    ap_if = network.WLAN(network.AP_IF)
-    ap_if.active(False)
-    sta_if = network.WLAN(network.STA_IF)
-    sta_if.active(True)
-    sta_if.connect('EEERover','exhibition')
 
 def publish_index(timestamp, index, last_watered, water_level):
     json_payload={  "timestamp": timestamp,
@@ -170,7 +168,7 @@ class device_status(object):
         self.light_max = self.light
 
         # Ideal Values for plant 
-        self.ideal_light = 15
+        self.ideal_light = 11
         self.ideal_temp = 22
         self.ideal_water = 50
         
@@ -187,17 +185,6 @@ class device_status(object):
         self.temp = self.temp_sensor.readTemp()
         self.water = self.temp_sensor.readRH()
         
-    def MaxValue(self, old_max, new_value):
-        if new_value > old_max:
-            return new_value
-        else:
-            return old_max
-    
-    def MinValue(self, old_min, new_value):
-        if new_value < old_min:
-            return new_value
-        else:
-            return old_min
             
     def watering(self): 
         if self.water_level == 0:# Check if the water needs to be toppped up
@@ -208,8 +195,9 @@ class device_status(object):
             self.water_level -= 1
             self.last_watered = utime.time()
             
-    def refill(self):
-        self.water_level = 10 
+    def refill(self, irq):
+        self.water_level = 10
+        print("Refilled")
 
     def ServoMove(self):# Opens servo motor 
         self.servo.duty(130)
@@ -226,7 +214,7 @@ class device_status(object):
             self.water_score = ((100-self.water)/30)*50
     
     def score_temp(self):
-        value = (math.fabs(self.temp - self.ideal_temp))/ideal_temp
+        value = (math.fabs(self.temp - self.ideal_temp))/self.ideal_temp
         if value <=0.05: # A temperature within 5% of the ideal gives a score from 100 to 70
             self.temp_score =((0.05-value)/0.05)*30 + 70
         elif value <= 0.15: #Within 15% of the ideal temperature gives a score from 70 to 30
@@ -235,7 +223,7 @@ class device_status(object):
             self.temp_score = (1-value)*30
             
     def score_light(self):
-        value = (math.fabs(self.temp - self.ideal_temp))/ideal_temp
+        value = (math.fabs(self.light - self.ideal_light))/self.ideal_light
         if value <=0.05:# A light reading within 5% of the ideal gives a score from 100 to 70
             self.light_score =((0.05-value)/0.05)*30 + 70
         elif value <= 0.15: #Within 15% of the ideal light intensity gives a score from 70 to 30
@@ -249,51 +237,55 @@ class device_status(object):
         self.score_light()
         self.index = self.light_score/3 + self.temp_score/3 + self.water_score/3
     
-    def print_results(self):
-        print('Light reading {} lux' .format(self.light))
-        print('Temperature reading {} C' .format(self.temp))
-        print('Humidity reading {} %' .format(self.water))
-    
     def sample(self, tim):	
     
         esp.sleep_type(esp.SLEEP_NONE)
 
 	
-        if self.average_count == 0:
-            self.start_time = utime.time()
-
-        self.curr_sense_t = utime.time()
-        self.averaging_time = self.curr_sense_t - self.last_sense_t
-        self.total_time = self.curr_sense_t - self.start_time
-        self.last_sense_t = self.curr_sense_t
-        self.report_basic()
-       
-        
         self.collectData()
-        
-        #Change to rolling average
+        if self.average_count == 0:
+            self.water_min = self.water
+            self.water_max = self.water
+            
+            self.temp_min = self.temp
+            self.temp_max = self.temp
+            
+            self.light_min = self.light
+            self.light_max = self.light
+            
+            self.start_time = utime.time()
+            self.last_sense_t = utime.time()
+        else:
+            self.curr_sense_t = utime.time()
+            self.averaging_time = self.curr_sense_t - self.last_sense_t
+            self.total_time = self.curr_sense_t - self.start_time
+            self.last_sense_t = self.curr_sense_t
+            
+            
+            #Change to rolling average
 
-	self.cur_avg_fraction = (self.total_time - self.averaging_time)\
-                                        /self.total_time
-	self.new_avg_fraction = (self.averaging_time)\
-                                        /self.total_time
-	
-        self.water_avg = self.water_avg*self.cur_avg_fraction \
-                        + self.water*self.new_avg_fraction
-        self.water_min = self.MinValue(self.water_min, self.water)
-        self.water_max = self.MaxValue(self.water_max, self.water)
-        
-        self.temp_avg = self.temp_avg*self.cur_avg_fraction \
-                        + self.temp*self.new_avg_fraction
-        self.temp_min = self.MinValue(self.temp_min, self.temp)
-        self.temp_max = self.MaxValue(self.temp_max, self.temp)
-        
-        self.light_avg = self.light_avg*self.cur_avg_fraction \
-                        + self.light*self.new_avg_fraction
-        self.light_min = self.MinValue(self.light_min, self.light)
-        self.light_max = self.MaxValue(self.light_max, self.light)
+	    self.cur_avg_fraction = (self.total_time - self.averaging_time)\
+                                            /self.total_time
+	    self.new_avg_fraction = (self.averaging_time)\
+                                            /self.total_time
+	    
+            self.water_avg = self.water_avg*self.cur_avg_fraction \
+                            + self.water*self.new_avg_fraction
+            self.water_min = min((self.water_min, self.water))
+            self.water_max = max((self.water_max, self.water))
+            
+            self.temp_avg = self.temp_avg*self.cur_avg_fraction \
+                            + self.temp*self.new_avg_fraction
+            self.temp_min = min((self.temp_min, self.temp))
+            self.temp_max = max((self.temp_max, self.temp))
+            
+            self.light_avg = self.light_avg*self.cur_avg_fraction \
+                            + self.light*self.new_avg_fraction
+            self.light_min = min((self.light_min, self.light))
+            self.light_max = max((self.light_max, self.light))
 
-        self.score_total()
+            self.score_total()
+            self.report_basic()
         
         self.average_count += 1
         if self.average_count == self.average_every:
@@ -336,7 +328,6 @@ class device_status(object):
         return "Rolling averages: "
 
 
-#if __name__ == '__main__':
 def run():   
     print(utime.localtime())
     mike = device_status()
