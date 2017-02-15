@@ -242,6 +242,11 @@ class device_status(object):
     def score_total(self):
         self.score_total = self.light_score/3 + self.temp_score/3 + self.water_score/3
     
+    def print_results(self):
+        print('Light reading {} lux' .format(self.light))
+        print('Temperature reading {} C' .format(self.temp))
+        print('Humidity reading {} %' .format(self.water))
+    
     def sample(self, tim):	
     
         esp.sleep_type(esp.SLEEP_NONE)
