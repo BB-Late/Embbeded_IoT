@@ -34,8 +34,6 @@ def on_rqst_message(client1, userdata, message):
     curr_index = message.payload.decode("utf-8")
     heappush(rqst_queue, msg_content)
     interrupt = True
-#    if collecting:
-#        raise SystemExit()
 
 def on_message(client1, userdata, message):
     print("ERR: Message from unrecognized topic:  ", message.topic, 
@@ -72,7 +70,11 @@ def reply_index():
         answ += "\n      water tank at: " + \
                  str(data["water_level"]*10) + "%"
     return answ
-    
+
+# Average requests can specify a data type and the length 
+# or ask for all dates and/or types. Otherwise the request
+# is wrong, return none to inform so. If correct returns
+# pretty printed answer
 def reply_avg(avg_type, avg_length):
     import server 
     import itertools 
@@ -92,18 +94,12 @@ def reply_avg(avg_type, avg_length):
         return None
     answ = ""
     for avg_type, avg_length in list(itertools.product(avg_types, avg_lengths)):
-        if avg_type == "index":
-            avg = server.avg_index(server.file_data,
-                                                    avg_type, avg_length)
-            answ += "\n" + avg_length + " values for ~"+ avg_type + "~ are:"
-            answ += "\n    Avg: " + str(avg) + " " +  avg_units[avg_type]
-        else:
-            avg, max_v, min_v = server.avg_max_min(server.file_data,
-                                                    avg_type, avg_length)
-            answ += "\n" + avg_length + " values for ~"+ avg_type + "~ are:"
-            answ += "\n    Min: " + str(min_v) + " " + avg_units[avg_type]
-            answ += "\n    Avg: " + str(avg) + " " + avg_units[avg_type]
-            answ += "\n    Max: " + str(max_v) + " " + avg_units[avg_type]
+        avg, max_v, min_v = server.avg_max_min(server.file_data,
+                                                avg_type, avg_length)
+        answ += "\n" + avg_length + " values for ~"+ avg_type + "~ are:"
+        answ += "\n    Min: " + str(min_v) + " " + avg_units[avg_type]
+        answ += "\n    Avg: " + str(avg) + " " + avg_units[avg_type]
+        answ += "\n    Max: " + str(max_v) + " " + avg_units[avg_type]
     return answ
 
 msg_queue =[] 
@@ -112,34 +108,39 @@ curr_index = None
 collecting = False 
 interrupt = False 
 
+#Setup connection with the broker
 broker_address="192.168.0.10"
-#broker_address="127.0.0.1"
-client1 = mqtt.Client("P1")    #create new instance
-client1.on_connect= on_connect        #attach function to callback
-client1.on_message= on_message        #attach function to callback
+client1 = mqtt.Client("P1")
+
+#Callbacks for connection and for message of unsuscribed topic
+client1.on_connect= on_connect 
+client1.on_message= on_message 
 
 time.sleep(1)
-#client1.connect(broker_address, port=1025)      #connect to broker
-client1.connect(broker_address)      #connect to broker
+client1.connect(broker_address)
+
+#Listen for data and requests in the specific server subtopics
 client1.message_callback_add(avg_topic, on_avg_message)
-client1.message_callback_add(rqst_topic, on_rqst_message)
 client1.message_callback_add(index_topic, on_index_message)
+client1.message_callback_add(rqst_topic, on_rqst_message)
+
 client1.subscribe(server_topic + "/#", 2)
 client1.publish(client_topic, "Client connected to server", 2)
-client1.loop_start()    #start the loop
+client1.loop_start()   
 
 end = False
 while not end:
     print "Looping"
     try:
+        #Save all incoming average data to the log file
         collecting = True
         with open('real_datalog.txt', 'a') as outputfile:
             while msg_queue:
                 file_line = payload_to_str(msg_queue.pop())
                 outputfile.write(file_line)
+                #Give priority to requests
                 if interrupt:
                     raise SystemExit
-
         time.sleep(5)
         collecting = False 
     except SystemExit:
@@ -168,8 +169,12 @@ while not end:
                     raise ValueError()
             else:
                 raise ValueError()
+
+            #If reach here no error in request and can answer
             print("Publishing good answ: ", reply)
             client1.publish(client_topic, reply, 2)
+
+        #Errors in the incoming request format raise ValueError exception
         except ValueError:
             answ_wrong = "Received bad request: " + json.dumps(rqst_data) + \
                          """format must be: 

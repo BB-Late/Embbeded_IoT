@@ -1,18 +1,16 @@
 import utime
-#import time 
 import machine 
-
-utc = (2017, 02, 16, 4, 11, 21, 18, 0)
-machine.RTC().datetime(utc)
-
-import tsl2561 # Library for light sensor
-import ujson 
+import tsl2561  # Library for light sensor, copied to memory of device
+import ujson    #  source: https://github.com/adafruit/micropython-adafruit-tsl2561
 import network
-#import si7021   # need to get library from here https://gist.github.com/minyk/7c3070bc1c2766633b8ff1d4d51089cf
 from machine import I2C, Pin
 import esp
 import math
 from umqtt.simple import MQTTClient
+
+utc = (2017, 02, 16, 4, 11, 21, 18, 0)
+machine.RTC().datetime(utc)
+
 
 machine_name = machine.unique_id()
 ap_if = network.WLAN(network.AP_IF)
@@ -68,12 +66,14 @@ def publish_full_data(timestamp,
 #SI7021 temperature sensor Address and commands
 
 
-
-class Si7021(object):# Code copied from Si7021 library, may need to be changed
+# Library for the Si7021 sensor for humidity and temperature
+# Included as code and not imported for debugging and understanding
+# Required small changes
+#   Source: https://gist.github.com/minyk/7c3070bc1c2766633b8ff1d4d51089cf
+class Si7021(object):
     SI7021_I2C_DEFAULT_ADDR = 0x40
     CMD_MEASURE_RELATIVE_HUMIDITY = 0xF5
     CMD_MEASURE_TEMPERATURE = 0xF3
-#    def __init__(self, i2c_in, i2c_addr = Si7021.SI7021_I2C_DEFAULT_ADDR):
     def __init__(self, i2c_in):
         self.addr = Si7021.SI7021_I2C_DEFAULT_ADDR
         self.cbuffer = bytearray(2)
@@ -99,22 +99,6 @@ class Si7021(object):# Code copied from Si7021 library, may need to be changed
         rh2 = rh[0] << 8 # shift bits by 8 over to the right
         rh2 = rh2 | rh[1] # Shift least significant byte to the back
         return (125 * rh2 / 65536) - 6 # Calculation from data sheet
-    
-
- #----------------------------------------------------------------------------------------------------------
-    
-# Not sure we need theses functions, they only contain one command from the revelant library.
-
-def ReadLight(light): # Reading from light sensor
-    light = append(L_sensor.read())
-    
-def ReadTemp(temp): # Reading from Temperature library
-    temp = append(temp_sensor.readTemp())
-    
-def ReadHumidity(humid): # Reading from Temperature library
-    humid = append(temp_sensor.readRH())
-    
-#--------------------------------------------------------------------------------------------------------
 
 
 
@@ -126,22 +110,17 @@ class device_status(object):
         self.pin_5 = Pin(5)
 
         #-1 selects software I2C implementation since no dedicated hardware
-        self.i2c = I2C(-1, self.pin_5, self.pin_4) # Setup the i2c channel
-
-        self.L_sensor = tsl2561.TSL2561(self.i2c) # Setup the light sesnor
-
-        # Setupthe temperature and humidity Sensor 
+        self.i2c = I2C(-1, self.pin_5, self.pin_4) 
+        self.light_sensor = tsl2561.TSL2561(self.i2c) 
         self.temp_sensor = Si7021(self.i2c)
-        self.servo = machine.PWM(machine.Pin(12), freq = 50) # Setup for servo motor
-        
-        self.servo.duty(30) #Setting the inital posistion of the servo motor
-        
+        self.servo = machine.PWM(machine.Pin(12), freq = 50) 
+
+        #Setting the inital posistion of the servo motor to water closed
+        self.servo.duty(30)         
         self.average_every = 4       
         self.average_count = 0    
-           
-        self.start_time = utime.time() # The starting time of data collection
-        self.last_sense_t = utime.time(); # the ti0me before the last sample
-        
+      
+        #Variables to hold current readings
         self.light = 0
         self.temp = 0
         self.water = 0
@@ -149,92 +128,95 @@ class device_status(object):
         self.index = 0
         self.last_watered = 0  
 
-        self.water_level = 10 # Full water level will be 10, needs changing at zero
-        self.need_water = False # Flag for when the water needs to be topped up
-        #self.min_water_level = 10 # Water level that needs to be crossed before it is watered
-        
-        self.collectData()
-        
-        self.water_avg = self.water
-        self.water_min = self.water
-        self.water_max = self.water
-        
-        self.temp_avg = self.temp
-        self.temp_min = self.temp
-        self.temp_max = self.temp
-        
-        self.light_avg = self.light
-        self.light_min = self.light
-        self.light_max = self.light
+        #Water tank starts empty, need user to refill
+        self.water_level = 0
 
-        # Ideal Values for plant 
+        # Flag for when the water needs to be topped up
+        self.need_water = False         
+
+        # Ideal Values for plant, used for plant index 
         self.ideal_light = 28 
         self.ideal_temp = 22
         self.ideal_water = 50
         
-        # plant score
-        self.water_score = 0
-        self.temp_score = 0
-        self.light_score = 0 
-        self.total_score = 0 
+        # Plant index indicates health of plant as percentage
+        self.water_index = 0
+        self.temp_index = 0
+        self.light_index = 0 
+        self.total_index = 0 
         
         self.watering_time = 3 
     
-    def collectData(self):#Data collection all at once 
-        self.light = self.L_sensor.read()
+        self.start_time = utime.time()
+        self.last_sense_t = utime.time()
+    def read_sensors(self): 
+        self.light = self.light_sensor.read()
         self.temp = self.temp_sensor.readTemp()
         self.water = self.temp_sensor.readRH()
         
             
-    def watering(self): 
-        if self.water_level == 0:# Check if the water needs to be toppped up
+    def watering(self):
+        # Check if the water needs to be toppped up
+        if self.water_level == 0:
             self.need_water = True
         else:
+            #Water since there is water available
             print("Watering")
             self.need_water = False
-            self.ServoMove()
+            self.open_water()
             self.water_level -= 1
             self.last_watered = utime.time()
-            
+    
+    def open_water(self): 
+        self.servo.duty(130)
+        utime.sleep(2)
+        self.servo.duty(30)
+
+    #Callback from irq triggered by refill button
     def refill(self, irq):
         self.water_level = 10
         print("Refilled")
 
-    def ServoMove(self):# Opens servo motor 
-        self.servo.duty(130)
-        utime.sleep(2)
-        self.servo.duty(30)
+    # Humidity must be around an ideal value close to 50%
+    # Values from 30% to 70% receive a score form 50%-100% as
+    #   a function of their deviation from thei ideal
+    # Extreme values < 30% and >70% can only achieve a 50% score
+    def index_water(self): 
+        if self.water <= 30: 
+            self.water_index = (self.water/30)*50
+        elif self.water <= 70:
+            self.water_index = \
+                    (math.fabs((self.water - self.ideal_water))/20)*50+50
+        elif self.water >70:
+            self.water_index = ((100-self.water)/30)*50
     
-    def score_water(self): # Calculating the score for the humidity
-        if self.water <= 30: # Less that 30% humidity gives a score between 0 and 50
-            self.water_score = (self.water/30)*50
-        elif self.water <= 70: #Up to 50% humidity gives a score from 50 to 100
-                                        #humidity from 50% to 70% gives a score from 100 to 50
-            self.water_score = (math.fabs((self.water - self.ideal_water))/20)*50+50
-        elif self.water >70: # More than 70% humidity gives a decreasing score form 50 to 0
-            self.water_score = ((100-self.water)/30)*50
-    
-    def score_temp(self):
+    # Temperature must be around an ideal value with small deviation
+    # Index is a function of the deviation from the ideal value such that:
+    #       index is 100% - 70% if temperature within 5% deviation
+    #       index is 70% - 30% if temperature within 5-15% deviation
+    #       index is 30% - 0% if temperature over 15% deviation
+    def index_temp(self):
         value = (math.fabs(self.temp - self.ideal_temp))/self.ideal_temp
-        if value <=0.05: # A temperature within 5% of the ideal gives a score from 100 to 70
-            self.temp_score =((0.05-value)/0.05)*30 + 70
-        elif value <= 0.15: #Within 15% of the ideal temperature gives a score from 70 to 30
-            self.temp_score = ((0.15-value)/0.15)*40 + 30
-        else: #A temperature over 15% this gives a score from 30 to 0
-            self.temp_score = (1-value)*30
+        if value <=0.05: 
+            self.temp_index =((0.05-value)/0.05)*30 + 70
+        elif value <= 0.15: 
+            self.temp_index = ((0.15-value)/0.15)*40 + 30
+        else: 
+            self.temp_index = (1-value)*30
             
-    def score_light(self):
+    def index_light(self):
         value = self.light/self.ideal_light
         if value >= 1:
-            self.light_score = 100
+            self.light_index = 100
         else:
-            self.light_score = value*100
-            
-    def score_total(self): # The overal score is the average of the light, temperature and humdity scores
-        self.score_water()
-        self.score_temp()
-        self.score_light()
-        self.index = self.light_score/3 + self.temp_score/3 + self.water_score/3
+            self.light_index = value*100
+    
+    # The overal index is the average of indexes
+    def index_total(self): 
+        self.index_water()
+        self.index_temp()
+        self.index_light()
+        self.index = self.light_index/3 + self.temp_index/3 + self.water_index/3
     
     def pretty_print_sample(self):
         return "Sample: {} Lux {} C {} %RH \n\tPlant is {}% well".format(
@@ -244,11 +226,20 @@ class device_status(object):
         return "\tReporting rolling averages: {} Lux {} C {} %RH".format(
                             self.light_avg, self.temp_avg, self.water_avg)
 
+    #Sample is called periodically to:
+        # Wake up
+        # Read sensors
+        # Calculate plant index
+        # Report plant index
+        # Update rolling averages, min, max
+        # Report rolling values every average_every samples
+        # Set sleep
     def sample(self, tim):	
     
         esp.sleep_type(esp.SLEEP_NONE)
 	
-        self.collectData()
+        self.read_sensors()
+
         if self.average_count == 0:
             self.water_min = self.water
             self.water_max = self.water
@@ -290,7 +281,7 @@ class device_status(object):
             self.light_min = min((self.light_min, self.light))
             self.light_max = max((self.light_max, self.light))
 
-            self.score_total()
+            self.index_total()
             self.report_basic()
 
             print(self.pretty_print_sample())
@@ -329,29 +320,46 @@ class device_status(object):
         return {"Month": t[2], "Day": t[1], "Hour": (t[3]), "Min" : t[4]} 
 
 
-
-def run():   
+# For demonstration purposes the device was set up from
+# a terminal connection by calling:
+#       import IoTDevice:
+#       IoTDevice.run()
+# This allowed to start an interrupt sample taking trough
+# Keyboard signals and provided screen output.
+#
+# On the final prototype this would be set up in the boot.py
+# file of the ESP8266 which runs on setup
+def run():  
+    # Mike is the nickname of our current prototype
     mike = device_status()
 
+    # Sensing time would be substantially higher for working device
+    # Kept low for demonstration
     sense_time_sec = 5 
     sense_time =  sense_time_sec*1000
-
     utime.sleep(sense_time_sec)
+
+    # Set periodic sampling
     tim = machine.Timer(-1)
     tim.init(period=sense_time, mode=tim.PERIODIC, callback=mike.sample)	
     
+    # Set irq for pressing of refill button
+    # Button found to bounce, triggering multiple irq
+    # but since refilling multiple times in a fraction of
+    # second keeps the same result (water is full), button
+    # was not debounced to save unnecessary computation
     p0 = Pin(15, Pin.IN)
     p0.irq(trigger=Pin.IRQ_RISING, handler=mike.refill)
     
+    # Loop until there is a keyboard interrupt
     end = False
     while not end:
-#        print("Looping")
         try:
             utime.sleep(5)
         except KeyboardInterrupt:
+            #Disable periodic sampling
     	    tim.init(period=sense_time, mode=tim.ONE_SHOT, 
 					callback=lambda t : 0) 
             print("Ending data collection")
             end = True
     
-
