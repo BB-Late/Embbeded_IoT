@@ -1,3 +1,26 @@
+""" IoTDevice.py 
+    FPJA group 
+    Feb 2017
+    
+    Program to run the sensor side of our IoT plant monitoring 
+    solution. Features:
+        - Initialises RTC clock of the device to the time 
+          set at programming. See program.sh for more details
+        - Configures hardware:
+            - setup i2c for the light and temp/humidity sensors
+            - setup pwm for servo
+            - setup interrupt routine for refill button
+            - setup wifi as STA and connect to EERover
+        - Sample sensors periodically and process:
+            - Set sleep mode while not processing
+            - Water if necessary
+            - Read sensors
+            - Calculate plant index
+            - Report plant index in JSON
+            - Update rolling averages, min, max 
+            - Report rolling values every <average_every> samples in JSON
+"""
+
 import utime
 import machine 
 import tsl2561  # Library for light sensor, copied to memory of device
@@ -226,20 +249,24 @@ class device_status(object):
         return "\tReporting rolling averages: {} Lux {} C {} %RH".format(
                             self.light_avg, self.temp_avg, self.water_avg)
 
-    #Sample is called periodically to:
-        # Wake up
-        # Read sensors
-        # Calculate plant index
-        # Report plant index
-        # Update rolling averages, min, max
-        # Report rolling values every average_every samples
-        # Set sleep
     def sample(self, tim):	
     
         esp.sleep_type(esp.SLEEP_NONE)
 	
         self.read_sensors()
 
+        # To avoid excessive communication with broker, thus
+        # saving energy, memory in the server and computation
+        # time, the device produces averages of various samples
+        # and reports these. To do so efficiently the averages
+        # are computed as rolling averages. Every time the averages
+        # are reported they are restarted. Then for every new sample
+        # its value is added to the rolling average by computing the
+        # fraction of time with respect to the total time the current
+        # average was taken at. This prevents saving multiple samples
+        # to compute the average
+
+        #Restart rolling averages, min and max
         if self.average_count == 0:
             self.water_min = self.water
             self.water_max = self.water
@@ -258,9 +285,9 @@ class device_status(object):
             self.total_time = self.curr_sense_t - self.start_time
             self.last_sense_t = self.curr_sense_t
             
-            
-            #Change to rolling average
-
+            #New averages are the current averages weighted by the 
+            #fraction of time of the current averages to the new total 
+            #time plus the new value weighted by the time it is taken over 
 	    self.cur_avg_fraction = (self.total_time - self.averaging_time)\
                                             /self.total_time
 	    self.new_avg_fraction = (self.averaging_time)\
@@ -281,6 +308,7 @@ class device_status(object):
             self.light_min = min((self.light_min, self.light))
             self.light_max = max((self.light_max, self.light))
 
+            #Calculate and publish plant score
             self.index_total()
             self.report_basic()
 
@@ -292,7 +320,7 @@ class device_status(object):
                 print(self.pretty_print_avg())
                 self.average_count = 0
                 
-	
+	#Water if necessary
         self.watering_time -= 1 
         if self.watering_time == 0:
             self.watering()
