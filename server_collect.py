@@ -78,7 +78,7 @@ def reply_avg(avg_type, avg_length):
     import itertools 
     avg_types = ["water", "temp", "light", "index"]
     avg_lengths = ["Daily", "Weekly"]
-    avg_units = {"water" : "% RH", "temp":"Celsius", "light": "Lumens", "index": "%"}
+    avg_units = {"water" : "% RH", "temp":"Celsius", "light": "Lux", "index": "%"}
     if avg_type != "all":
         avg_types = [avg_type]
         avg_lenths = [avg_length]
@@ -96,14 +96,14 @@ def reply_avg(avg_type, avg_length):
             avg = server.avg_index(server.file_data,
                                                     avg_type, avg_length)
             answ += "\n" + avg_length + " values for ~"+ avg_type + "~ are:"
-            answ += "\n    Avg: " + str(avg) + avg_units[avg_type]
+            answ += "\n    Avg: " + str(avg) + " " +  avg_units[avg_type]
         else:
             avg, max_v, min_v = server.avg_max_min(server.file_data,
                                                     avg_type, avg_length)
             answ += "\n" + avg_length + " values for ~"+ avg_type + "~ are:"
-            answ += "\n    Min: " + str(min_v) + avg_units[avg_type]
-            answ += "\n    Avg: " + str(avg) + avg_units[avg_type]
-            answ += "\n    Max: " + str(max_v) + avg_units[avg_type]
+            answ += "\n    Min: " + str(min_v) + " " + avg_units[avg_type]
+            answ += "\n    Avg: " + str(avg) + " " + avg_units[avg_type]
+            answ += "\n    Max: " + str(max_v) + " " + avg_units[avg_type]
     return answ
 
 msg_queue =[] 

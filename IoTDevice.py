@@ -2,7 +2,7 @@ import utime
 #import time 
 import machine 
 
-utc = (2017, 02, 15, 3, 20, 14, 05, 0)
+utc = (2017, 02, 16, 4, 11, 21, 18, 0)
 machine.RTC().datetime(utc)
 
 import tsl2561 # Library for light sensor
@@ -168,7 +168,7 @@ class device_status(object):
         self.light_max = self.light
 
         # Ideal Values for plant 
-        self.ideal_light = 15
+        self.ideal_light = 28 
         self.ideal_temp = 22
         self.ideal_water = 50
         
@@ -190,6 +190,7 @@ class device_status(object):
         if self.water_level == 0:# Check if the water needs to be toppped up
             self.need_water = True
         else:
+            print("Watering")
             self.need_water = False
             self.ServoMove()
             self.water_level -= 1
@@ -235,10 +236,17 @@ class device_status(object):
         self.score_light()
         self.index = self.light_score/3 + self.temp_score/3 + self.water_score/3
     
+    def pretty_print_sample(self):
+        return "Sample: {} Lux {} C {} %RH \n\tPlant is {}% well".format(
+                        self.light, self.temp, self.water, self.index)
+
+    def pretty_print_avg(self):
+        return "\tReporting rolling averages: {} Lux {} C {} %RH".format(
+                            self.light_avg, self.temp_avg, self.water_avg)
+
     def sample(self, tim):	
     
         esp.sleep_type(esp.SLEEP_NONE)
-
 	
         self.collectData()
         if self.average_count == 0:
@@ -284,10 +292,13 @@ class device_status(object):
 
             self.score_total()
             self.report_basic()
+
+            print(self.pretty_print_sample())
         
         self.average_count += 1
         if self.average_count == self.average_every:
         	self.report_full()
+                print(self.pretty_print_avg())
                 self.average_count = 0
                 
 	
@@ -317,17 +328,9 @@ class device_status(object):
         t = utime.localtime(t_from_e) 
         return {"Month": t[2], "Day": t[1], "Hour": (t[3]), "Min" : t[4]} 
 
-    def pretty_print_sampe(self):
-        return "Sample: {} Lux {} C {} %RH {} \n\tPlant is {}% well".format(
-                        self.light, self.temp, self.water, sellf.index)
-
-    
-    def pretty_print_avg(self):
-        return "Rolling averages: "
 
 
 def run():   
-    print(utime.localtime())
     mike = device_status()
 
     sense_time_sec = 5 
@@ -342,7 +345,7 @@ def run():
     
     end = False
     while not end:
-        print("Looping")
+#        print("Looping")
         try:
             utime.sleep(5)
         except KeyboardInterrupt:
