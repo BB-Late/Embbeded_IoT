@@ -226,7 +226,9 @@ class device_status(object):
             self.temp_index = ((0.15-value)/0.15)*40 + 30
         else: 
             self.temp_index = (1-value)*30
-            
+    
+    #Light is rated as a percentage compared to the ideal value
+    #If the light level is above the idea value the idex is set to 100%
     def index_light(self):
         value = self.light/self.ideal_light
         if value >= 1:
