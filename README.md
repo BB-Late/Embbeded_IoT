@@ -12,7 +12,7 @@ The product we have developed is a system based on the IoT containing a plant mo
 
 A template static version of a website we would use to sell our device can be found in `website_final.pdf`. This includes a description of the hardware use, the functionalities implemented and how we measure how well a plant is doing. It also contains some persuasive information such as as graphs showing how little power the device uses, with actual data from the hardware, and how well do average plants do in comparison with monitored plants, with fictional data for demonstration purposes.
 
-Some short clips demonstrating the functionality of our prototype can 
+Some short clips demonstrating the functionality of our prototype can be found [here](https://youtu.be/ZFxPW8YGl64)
 
 ## How to run
 ### IoTDevice
