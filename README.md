@@ -10,6 +10,10 @@ Jesus E. Garcia
 ## Our IoT Plant monitoring solution
 The product we have developed is a system based on the IoT containing a plant monitoring device, a server and a client application. The monitoring device is to be placed on a plant to automatically water it and gather information. This information is initially partially processed in the device to develop a *plant index* which is a percentage score of how well the plant is doing. The server gathers the latest plant index as well as other processed sensor data for the device. To save energy the device only pulishes and does not receive MQTT messages. The server is both an MQTT subscriber and publisher which simultaneously deals with the device and the client. It takes requests from the client and replies with the necessary information. 
 
+A template static version of a website we would use to sell our device can be found in `website_final.pdf`. This includes a description of the hardware use, the functionalities implemented and how we measure how well a plant is doing. It also contains some persuasive information such as as graphs showing how little power the device uses, with actual data from the hardware, and how well do average plants do in comparison with monitored plants, with fictional data for demonstration purposes.
+
+Some short clips demonstrating the functionality of our prototype can 
+
 ## How to run
 ### IoTDevice
 Our device requieres a _ESP8266_ module with i2c compatible sensors Si7021 and tsl2561 with _SCL_ connected to pin 5 and _SDA_ connected to pin 4. It also requires a PWM servo attached to pin 12 and a button attached to pin 15.
